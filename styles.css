@@ -1,0 +1,21 @@
+body {
+  font-family: Arial;
+}
+form {
+  max-width: 250px;
+}
+select {
+  max-width: 236px;
+}
+input[type="submit"] {
+  margin-left: 178px;
+}
+table {
+  min-width: 300px;
+}
+caption {
+  text-align: left;
+}
+td {
+  text-align: center;
+}
