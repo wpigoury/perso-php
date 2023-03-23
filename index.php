@@ -235,33 +235,6 @@ function calculateCluster($event, $data, $settings) {
   }
 }
 
-function resetCluster($reset) {
-  $user = $reset['userId'];
-  $websitePageVisitCount = $reset['traits']['websitePageVisitCount'];
-  $websiteScoreAverageUser = json_encode($reset['traits']['websiteScoreAverageUser']);
-  $websiteScoreAbsoluteUser = json_encode($reset['traits']['websiteScoreAbsoluteUser']);
-  $websiteClusterName = $reset['traits']['websiteClusterName'];
-  //pushCluster($user, $websitePageVisitCount, $websiteScoreAverageUser, $websiteScoreAbsoluteUser, $websiteClusterName);
-  pushCluster($user, null, null, null, null);
-}
-
-function scoreToTable($array, $name) {
-  $table  = '<table>';
-  $table .= '<caption>'.$name.'</caption>';
-  foreach ($array as $k => $v) {
-    if ($k === 0)
-      $table .= '<tr>';
-    else if ($k % 5 === 0)
-      $table .= '</tr><tr>';
-    $table .= '<td>'.$v.'</td>';
-    if ($k === count($array)-1) {
-      $table .= '</tr>';
-    }
-  }
-  $table .= '</table>';
-  return $table;
-}
-
 function computingScore($cluster_matrix, $websiteScoreAverageUser, $websiteClusterScore, $websiteClusterName) {
   foreach ($cluster_matrix as $key => $cluster) {
     $score = 0;
@@ -281,6 +254,89 @@ function computingScore($cluster_matrix, $websiteScoreAverageUser, $websiteClust
   }
 
   return array('websiteClusterScore' => $websiteClusterScore, 'websiteClusterName' => $websiteClusterName);
+}
+
+function scoreToTable($array, $name) {
+  $table  = '<table>';
+  $table .= '<caption>'.$name.'</caption>';
+  foreach ($array as $k => $v) {
+    if ($k === 0)
+      $table .= '<tr>';
+    else if ($k % 5 === 0)
+      $table .= '</tr><tr>';
+    $table .= '<td>'.$v.'</td>';
+    if ($k === count($array)-1) {
+      $table .= '</tr>';
+    }
+  }
+  $table .= '</table>';
+  return $table;
+}
+
+function pickPagesInCluster($clusterName) {
+  // ADD LOGIC TO PICK UP PAGES FROM IDENTIFIED CLUSTER
+  $pages_matrix = file_get_contents('./pages_matrix.json');
+  $pages_matrix = json_decode($pages_matrix);
+  if (property_exists($pages_matrix, $clusterName))
+    fetchAlgoliaContents($pages_matrix->$clusterName);
+  else
+    echo 'No content for cluster '.$clusterName;
+}
+
+function fetchAlgoliaContents($pages) {
+  $algoliaAppId = $_ENV['algoliaAppId'];
+  $algoliaKey = $_ENV['algoliaKey'];
+  $algoliaIndex = $_ENV['algoliaIndex'];
+  $website = $_ENV['website'];
+  $payload = '{"requests": [';
+  foreach ($pages as $p)
+    $payload .= '{"indexName": "'.$algoliaIndex.'","objectID": "'.$website.$p.'"},';
+  $payload = trim($payload, ',');
+  $payload .= ']}';
+  $endpoint = 'https://v4xbg1o1ev.algolia.net/1/indexes/*/objects';
+  $headers = array(
+    'Content-Type: application/json',
+    'X-Algolia-API-Key: '.$algoliaKey,
+    'X-Algolia-Application-Id: '.$algoliaAppId
+  );
+
+	$ch = curl_init();
+	try {
+    curl_setopt($ch, CURLOPT_URL, $endpoint);
+    curl_setopt($ch, CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, 5000);
+    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 5000);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+		
+		$response = curl_exec($ch);
+	  if (curl_errno($ch)) {
+			echo curl_error($ch);
+			die();
+		}
+		
+		$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    if (empty($response))
+      die("Empty response");
+    if ($http_code != intval(200))
+      die("Fetch fail: " . $http_code);
+
+    displayAlgoliaContents(json_decode($response));
+	} catch (\Throwable $th) {
+		throw $th;
+	} finally {
+		curl_close($ch);
+	}
+}
+
+function displayAlgoliaContents($contents) {
+  foreach ($contents->results as $c) {
+    echo '<div style="margin-bottom:5px;"><a href="'.$c->url.'" title="'.$c->title.'" target="_blank" style="width:400px;height:100px;color:#1e647d;font-size:14px;font-weight:600;text-decoration:none;display:flex;align-items:center;"><img src="'.$c->image.'?fm=webp&fit=fill&w=105&h=100&q=70" style="margin-right:5px;">'.$c->title.'</a></div>';
+  }
 }
 
 ?>
@@ -1338,6 +1394,7 @@ if (!empty($user) && !empty($path)) {
   </form>
 <?php
   $cluster = fetchCluster($event, $settings);
+  pickPagesInCluster($cluster['websiteClusterName']);
 ?>
   <br><br>
   <form method="get">
