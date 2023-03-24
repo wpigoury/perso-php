@@ -274,12 +274,11 @@ function scoreToTable($array, $name) {
 }
 
 function pickPagesInCluster($clusterName) {
-  // ADD LOGIC TO PICK UP PAGES FROM IDENTIFIED CLUSTER
   $pages_matrix = file_get_contents('./pages_matrix.json');
   $pages_matrix = json_decode($pages_matrix);
-  if (property_exists($pages_matrix, $clusterName))
-    fetchAlgoliaContents($pages_matrix->$clusterName);
-  else
+  if (property_exists($pages_matrix, $clusterName)) {
+    fetchAlgoliaContents(array_rand(array_flip($pages_matrix->$clusterName), 15));// NEW > get 15 pages max
+  } else
     echo 'No content for cluster '.$clusterName;
 }
 
@@ -325,7 +324,20 @@ function fetchAlgoliaContents($pages) {
     if ($http_code != intval(200))
       die("Fetch fail: " . $http_code);
 
-    displayAlgoliaContents(json_decode($response));
+    // NEW filter contents to push only good entries and get only 5 of them
+    $results = json_decode($response);
+    $contents = array();
+    $i = 0;
+    foreach ($results->results as $r) {
+      if (!empty($r->url) && !empty($r->image)) {
+        $contents[] = $r;
+        $i++;
+      }
+      if ($i == 5)
+        break;
+    }
+
+    displayAlgoliaContents($contents);
 	} catch (\Throwable $th) {
 		throw $th;
 	} finally {
@@ -334,7 +346,7 @@ function fetchAlgoliaContents($pages) {
 }
 
 function displayAlgoliaContents($contents) {
-  foreach ($contents->results as $c) {
+  foreach ($contents as $c) {
     echo '<div style="margin-bottom:5px;"><a href="'.$c->url.'" title="'.$c->title.'" target="_blank" style="width:400px;height:100px;color:#1e647d;font-size:14px;font-weight:600;text-decoration:none;display:flex;align-items:center;"><img src="'.$c->image.'?fm=webp&fit=fill&w=105&h=100&q=70" style="margin-right:5px;">'.$c->title.'</a></div>';
   }
 }
