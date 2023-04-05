@@ -274,6 +274,13 @@ function scoreToTable($array, $name) {
 }
 
 function pickPagesInCluster($clusterName) {
+  // meta_matrix loading
+  $meta_matrix = file_get_contents('./meta_matrix.json');
+  $meta_matrix = json_decode($meta_matrix);
+  if (property_exists($meta_matrix, $clusterName)) {
+    echo '<h2>You seem interested in '.$meta_matrix->$clusterName.' contents</h2>';
+  }
+  // pages_matrix loading
   $pages_matrix = file_get_contents('./pages_matrix.json');
   $pages_matrix = json_decode($pages_matrix);
   if (property_exists($pages_matrix, $clusterName)) {
